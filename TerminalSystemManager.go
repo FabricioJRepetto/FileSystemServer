@@ -13,7 +13,7 @@ import (
 var ORIGIN_PATH string = "C:\\ncr-cc\\temp\\ipm\\"
 var FILES_PATH string = "C:\\ncr-cc\\temp\\checks-images\\"
 var LOG_DIR string = "C:\\ncr-cc\\logs\\"
-var LOG_PATH string = LOG_DIR + "fileSystemServer-" + time.Now().Format("2006-01-02") + ".log"
+var LOG_PATH string = LOG_DIR + "TerminalSystemManager-" + time.Now().Format("2006-01-02") + ".log"
 
 // jaja boludoo
 func main() {
@@ -21,19 +21,20 @@ func main() {
 
 	// Handler para la ruta raíz
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "File System Server 🎈")
+		fmt.Fprintf(w, "Terminal System Manager Runnig")
 	})
 
 	http.HandleFunc("/manageCheckFiles", manageCheckFilesHandler)
+	http.HandleFunc("/depositCanceled", handleCanceledDeposit)
 
 	// Puerto y dirección donde va a escuchar
 	port := ":8081"
-	logMensaje("STATUS", "🎈 Server listening on http://localhost"+port)
+	logMensaje("STATUS", "✓ Terminal System Manager listening on http://localhost"+port)
 
 	// Levantar el servidor
 	err := http.ListenAndServe(port, nil)
 	if err != nil {
-		logMensaje("ERROR", "Error al iniciar el servidor:"+err.Error())
+		logMensaje("ERROR", "Error al iniciar Terminal System Manager: "+err.Error())
 	}
 }
 
@@ -62,13 +63,15 @@ func manageCheckFilesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for _, action := range actions {
+	logMensaje("STATUS", "Renombrando archivos...")
+	for k, action := range actions {
 		// Mover el archivo .tif renombrado
+		logMensaje("STATUS", "Archivo número ["+fmt.Sprint(k)+"] de ["+fmt.Sprint(len(actions))+"]")
 		if action.OldName != "" && action.NewName != "" {
 			err := os.Rename(ORIGIN_PATH+action.OldName, FILES_PATH+action.NewName)
 			if err != nil {
-				http.Error(w, "Error al renombrar: "+err.Error(), http.StatusInternalServerError)
 				logMensaje("ERROR", "Error al renombrar: "+err.Error())
+				http.Error(w, "Error al renombrar: "+err.Error(), http.StatusInternalServerError)
 				return
 			} else {
 				logMensaje("STATUS", "Archivo renombrado: "+action.OldName+" a "+action.NewName)
@@ -99,7 +102,39 @@ func manageCheckFilesHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, `{"status":"Archivos procesados correctamente"}`)
-	logMensaje("OK", "✅ Archivos procesados correctamente.")
+	logMensaje("OK", "✓ Archivos procesados correctamente.")
+}
+
+// Elimina archivos de imagenes de cheques actual ante una cancelación de la operación.
+func handleCanceledDeposit(w http.ResponseWriter, r *http.Request) {
+
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
+		logMensaje("ERROR", "Método no permitido: "+r.Method)
+		return
+	}
+
+	logMensaje("STATUS", "Limpiando directorio "+ORIGIN_PATH+" ...")
+	err := os.RemoveAll(ORIGIN_PATH)
+	if err != nil {
+		http.Error(w, "Error al eliminar: "+err.Error(), http.StatusInternalServerError)
+		logMensaje("ERROR", "Error al eliminar: "+err.Error())
+		return
+	} else {
+		logMensaje("STATUS", "Directorio "+ORIGIN_PATH+" eliminado")
+	}
+
+	errMk := os.MkdirAll(ORIGIN_PATH, 0755)
+	if errMk != nil {
+		logMensaje("[ERROR]", "Error al crear directorio: "+ORIGIN_PATH+" - "+errMk.Error())
+	} else {
+		logMensaje("[STATUS]", "✓ Directorio creado: "+ORIGIN_PATH)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, `{"status":"Archivos eliminados correctamente"}`)
+	logMensaje("OK", "✓ Archivos eliminados correctamente.")
 }
 
 // Logger
@@ -119,14 +154,14 @@ func logMensaje(logType string, mensaje string) {
 
 // Crea los directorios si no existen
 func createDirs(paths ...string) {
-	logMensaje("STATUS", "Creando directorios")
+	fmt.Println("******* ****** [STATUS] Creando directorios")
 	for _, path := range paths {
 		if _, err := os.Stat(path); os.IsNotExist(err) {
 			err = os.MkdirAll(path, 0755)
 			if err != nil {
-				logMensaje("ERROR", "Error al crear directorio: "+path+" - "+err.Error())
+				fmt.Println("[ERROR] Error al crear directorio: " + path + " - " + err.Error())
 			} else {
-				logMensaje("STATUS", "✅ Directorio creado: "+path)
+				fmt.Println("[STATUS] ✓ Directorio creado: " + path)
 			}
 		}
 	}
@@ -138,6 +173,7 @@ func createDirs(paths ...string) {
 
 	// Montar carpeta de red
 	cmdMap := exec.Command("cmd", "/C", "net", "use", "Z:", remoteShare, "/user:"+user, password)
+	logMensaje("STATUS", "Montando carpeta de red...")
 	errMount := cmdMap.Run()
 	if errMount != nil {
 		logMensaje("ERROR", "Error al montar la carpeta de red: "+errMount.Error())
