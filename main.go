@@ -10,7 +10,14 @@ import (
 	"time"
 )
 
+var ORIGIN_PATH string = "C:\\ncr-cc\\temp\\ipm\\"
+var FILES_PATH string = "C:\\ncr-cc\\temp\\checks-images\\"
+var LOG_DIR string = "C:\\ncr-cc\\logs\\"
+var LOG_PATH string = LOG_DIR + "fileSystemServer-" + time.Now().Format("2006-01-02") + ".log"
+
 func main() {
+	createDirs(FILES_PATH, FILES_PATH, LOG_DIR)
+
 	// Handler para la ruta raíz
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "File System Server 🎈")
@@ -38,10 +45,6 @@ type FileRequest struct {
 
 // Copia, renombra, mueve y elimina archivos de imagenes de cheques.
 func manageCheckFilesHandler(w http.ResponseWriter, r *http.Request) {
-	ORIGIN_PATH := "C:\\ncr-cc\\temp\\ipm\\"
-	FILES_PATH := "C:\\ncr-cc\\temp\\checks-images\\"
-
-	createDirs(w, FILES_PATH)
 
 	if r.Method != http.MethodPost {
 		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
@@ -98,9 +101,9 @@ func manageCheckFilesHandler(w http.ResponseWriter, r *http.Request) {
 	logMensaje("OK", "✅ Archivos procesados correctamente.")
 }
 
+// Logger
 func logMensaje(logType string, mensaje string) {
-	logPath := "C:\\ncr-cc\\logs\\file-system-server.log"
-	f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(LOG_PATH, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		fmt.Println("Error al abrir el archivo de log:", err)
 		return
@@ -114,15 +117,15 @@ func logMensaje(logType string, mensaje string) {
 }
 
 // Crea los directorios si no existen
-func createDirs(w http.ResponseWriter, paths ...string) {
+func createDirs(paths ...string) {
+	logMensaje("STATUS", "Creando directorios")
 	for _, path := range paths {
 		if _, err := os.Stat(path); os.IsNotExist(err) {
 			err = os.MkdirAll(path, 0755)
 			if err != nil {
-				http.Error(w, "Error al crear directorio: "+err.Error(), http.StatusInternalServerError)
 				logMensaje("ERROR", "Error al crear directorio: "+path+" - "+err.Error())
 			} else {
-				logMensaje("STATUS", "Directorio creado: "+path)
+				logMensaje("STATUS", "✅ Directorio creado: "+path)
 			}
 		}
 	}
