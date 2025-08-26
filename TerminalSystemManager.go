@@ -66,7 +66,7 @@ func manageCheckFilesHandler(w http.ResponseWriter, r *http.Request) {
 	logMensaje("STATUS", "Renombrando archivos...")
 	for k, action := range actions {
 		// Mover el archivo .tif renombrado
-		logMensaje("STATUS", "Archivo número ["+fmt.Sprint(k)+"] de ["+fmt.Sprint(len(actions))+"]")
+		logMensaje("STATUS", "Archivo número ["+fmt.Sprint(k+1)+"] de ["+fmt.Sprint(len(actions))+"]")
 		if action.OldName != "" && action.NewName != "" {
 			err := os.Rename(ORIGIN_PATH+action.OldName, FILES_PATH+action.NewName)
 			if err != nil {
@@ -167,12 +167,16 @@ func createDirs(paths ...string) {
 	}
 
 	// Configuración carpeta de red
-	remoteShare := `\\10.241.162.33\tfrfile\clearing\imagenesTAS`
-	user := `GSCORP.AD\svcTASimag`
-	password := `DVX4j32YGkobg0xkSNw4aA==`
+	remoteDirectory := os.Getenv("TSM_RemoteDirectory")
+	user := os.Getenv("TSM_RemoteUser")
+	password := os.Getenv("TSM_RemotePassword")
+
+	if user == "" || password == "" || remoteDirectory == "" {
+		logMensaje("ERROR", "Faltan variables de entorno para la configuración de la carpeta de red.")
+	}
 
 	// Montar carpeta de red
-	cmdMap := exec.Command("cmd", "/C", "net", "use", "Z:", remoteShare, "/user:"+user, password)
+	cmdMap := exec.Command("cmd", "/C", "net", "use", "Z:", remoteDirectory, "/user:"+user, password)
 	logMensaje("STATUS", "Montando carpeta de red...")
 	errMount := cmdMap.Run()
 	if errMount != nil {
