@@ -173,18 +173,19 @@ func createDirs(paths ...string) {
 
 	if user == "" || password == "" || remoteDirectory == "" {
 		logMensaje("ERROR", "Faltan variables de entorno para la configuración de la carpeta de red.")
+	} else {
+		// Montar carpeta de red
+		cmdMap := exec.Command("cmd", "/C", "net", "use", "Z:", remoteDirectory, "/user:"+user, password)
+		logMensaje("STATUS", "Montando carpeta de red...")
+		errMount := cmdMap.Run()
+		if errMount != nil {
+			logMensaje("ERROR", "Error al montar la carpeta de red: "+errMount.Error())
+			return
+		} else {
+			logMensaje("STATUS", "Carpeta de red montada correctamente.")
+		}
 	}
 
-	// Montar carpeta de red
-	cmdMap := exec.Command("cmd", "/C", "net", "use", "Z:", remoteDirectory, "/user:"+user, password)
-	logMensaje("STATUS", "Montando carpeta de red...")
-	errMount := cmdMap.Run()
-	if errMount != nil {
-		logMensaje("ERROR", "Error al montar la carpeta de red: "+errMount.Error())
-		return
-	} else {
-		logMensaje("STATUS", "Carpeta de red montada correctamente.")
-	}
 }
 
 // Función para copiar archivo
