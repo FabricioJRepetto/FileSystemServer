@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"syscall"
 	"time"
+	"unsafe"
 )
 
 var ORIGIN_PATH string = "C:\\ncr-cc\\temp\\ipm\\"
@@ -15,8 +17,13 @@ var FILES_PATH string = "C:\\ncr-cc\\temp\\checks-images\\"
 var LOG_DIR string = "C:\\ncr-cc\\logs\\"
 var LOG_PATH string = LOG_DIR + "fileSystemServer-" + time.Now().Format("2006-01-02") + ".log"
 
+type FocusRequest struct {
+	WindowTitle string `json:"windowTitle"`
+}
+
 // jaja boludoo
 func main() {
+	logWelcome()
 	createDirs(FILES_PATH, FILES_PATH, LOG_DIR)
 
 	// Handler para la ruta raíz
@@ -25,6 +32,7 @@ func main() {
 	})
 
 	http.HandleFunc("/manageCheckFiles", manageCheckFilesHandler)
+	http.HandleFunc("/windowFocus", focusHandler)
 
 	// Puerto y dirección donde va a escuchar
 	port := ":8081"
@@ -102,6 +110,12 @@ func manageCheckFilesHandler(w http.ResponseWriter, r *http.Request) {
 	logMensaje("OK", "✅ Archivos procesados correctamente.")
 }
 
+func logWelcome() {
+	fmt.Println("##############################")
+	fmt.Println(" ########## T-S-M ###########")
+	fmt.Println("##############################")
+}
+
 // Logger
 func logMensaje(logType string, mensaje string) {
 	f, err := os.OpenFile(LOG_PATH, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -147,6 +161,8 @@ func createDirs(paths ...string) {
 	}
 }
 
+//_____ Manejar archivos _____
+
 // Función para copiar archivo
 func copyFile(src, dst string) error {
 	sourceFile, err := os.Open(src)
@@ -191,4 +207,61 @@ func desmontarCarpetaRed() {
 	} else {
 		logMensaje("STATUS", "Unidad desmontada correctamente.")
 	}
+}
+
+// _____ Cambiar focus de ventanas _____
+var (
+	user32            = syscall.NewLazyDLL("user32.dll")
+	procFindWindowW   = user32.NewProc("FindWindowW")
+	procSetForeground = user32.NewProc("SetForegroundWindow")
+	procShowWindow    = user32.NewProc("ShowWindow")
+	procKeybdEvent    = user32.NewProc("keybd_event")
+)
+
+const (
+	SW_RESTORE      = 9
+	VK_MENU         = 0x12 // ALT key
+	KEYEVENTF_KEYUP = 0x0002
+)
+
+func focusHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req FocusRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		http.Error(w, "Error en el JSON", http.StatusBadRequest)
+		return
+	}
+
+	success := setFocusToWindow(req.WindowTitle)
+	if success {
+		fmt.Fprintf(w, "Se cambió el foco a la ventana: %s", req.WindowTitle)
+	} else {
+		http.Error(w, "No se pudo encontrar la ventana", http.StatusNotFound)
+	}
+}
+
+func setFocusToWindow(title string) bool {
+	ptr, _ := syscall.UTF16PtrFromString(title)
+
+	hwnd, _, _ := procFindWindowW.Call(0, uintptr(unsafe.Pointer(ptr)))
+	if hwnd == 0 {
+		return false
+	}
+
+	// Restaurar si está minimizada
+	procShowWindow.Call(hwnd, SW_RESTORE)
+
+	// Simular ALT para permitir SetForegroundWindow
+	procKeybdEvent.Call(VK_MENU, 0, 0, 0)
+	procKeybdEvent.Call(VK_MENU, 0, KEYEVENTF_KEYUP, 0)
+
+	// Intentar cambiar el foco
+	procSetForeground.Call(hwnd)
+
+	return true
 }
