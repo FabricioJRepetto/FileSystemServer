@@ -67,6 +67,7 @@ type FileRequest struct {
 
 // Copia, renombra, mueve y elimina archivos de imagenes de cheques.
 func manageCheckFilesHandler(w http.ResponseWriter, r *http.Request) {
+	logMensaje("REQ", "/manageCheckFiles")
 
 	if r.Method != http.MethodPost {
 		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
@@ -127,6 +128,7 @@ func manageCheckFilesHandler(w http.ResponseWriter, r *http.Request) {
 
 // Elimina archivos de imagenes de cheques actual ante una cancelación de la operación.
 func handleCanceledDeposit(w http.ResponseWriter, r *http.Request) {
+	logMensaje("REQ", "/depositCanceled")
 
 	if r.Method != http.MethodDelete {
 		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
@@ -288,6 +290,8 @@ const (
 )
 
 func focusHandler(w http.ResponseWriter, r *http.Request) {
+	logMensaje("REQ", "/windowFocus")
+
 	if r.Method != http.MethodPost {
 		logMensaje("ERROR", "Método no permitido")
 		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
