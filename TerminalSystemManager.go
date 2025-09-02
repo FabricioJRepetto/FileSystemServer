@@ -146,9 +146,15 @@ func handleCanceledDeposit(w http.ResponseWriter, r *http.Request) {
 }
 
 func logWelcome() {
-	fmt.Println("##############################")
-	fmt.Println(" ########## T-S-M ###########")
-	fmt.Println("##############################")
+	fmt.Println(`                                           `)
+	fmt.Println("ooooooooooooo  .oooooo..o ooo        ooooo ")
+	fmt.Println("8'   888   `8 d8P'    `Y8 `88.       .888' ")
+	fmt.Println("     888      Y88bo.       888b     d'888  ")
+	fmt.Println("     888       `'Y8888o.   8 Y88. .P  888  ")
+	fmt.Println("     888           `'Y88b  8  `888'   888  ")
+	fmt.Println("     888      oo     .d8P  8    Y     888  ")
+	fmt.Println(`    o888o     8""88888P'  o8o        o888o `)
+	fmt.Println(`                                           `)
 }
 
 // Logger
