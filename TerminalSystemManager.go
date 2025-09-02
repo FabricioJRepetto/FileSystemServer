@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -37,13 +38,9 @@ func main() {
 
 	// Puerto y dirección donde va a escuchar
 	port := ":8081"
-	logMensaje("STATUS", "✓ Terminal System Manager listening on http://localhost"+port)
-
 	// Levantar el servidor
-	err := http.ListenAndServe(port, nil)
-	if err != nil {
-		logMensaje("ERROR", "Error al iniciar Terminal System Manager: "+err.Error())
-	}
+	log.Fatal("[ERROR] Error al iniciar TSM - ", http.ListenAndServe(port, nil))
+	logMensaje("STATUS", "TSM listening on http://localhost"+port)
 }
 
 type FileRequest struct {
@@ -155,6 +152,10 @@ func logWelcome() {
 	fmt.Println("     888      oo     .d8P  8    Y     888  ")
 	fmt.Println(`    o888o     8""88888P'  o8o        o888o `)
 	fmt.Println(`                                           `)
+	fmt.Println(`···········································`)
+	fmt.Println(`                   Terminal System Manager `)
+	fmt.Println(`···········································`)
+	fmt.Println(`                                           `)
 }
 
 // Logger
@@ -174,7 +175,7 @@ func logMensaje(logType string, mensaje string) {
 
 // Crea los directorios si no existen
 func createDirs(paths ...string) {
-	fmt.Println("******* ****** [STATUS] Creando directorios")
+	fmt.Println("··········· Creando directorios ···········")
 	for _, path := range paths {
 		if _, err := os.Stat(path); os.IsNotExist(err) {
 			err = os.MkdirAll(path, 0755)
@@ -196,7 +197,7 @@ func createDirs(paths ...string) {
 	} else {
 		// Montar carpeta de red
 		cmdMap := exec.Command("cmd", "/C", "net", "use", "Z:", remoteDirectory, "/user:"+user, password)
-		logMensaje("STATUS", "Montando carpeta de red...")
+		fmt.Println("········· Montando carpeta de red ·········")
 		errMount := cmdMap.Run()
 		if errMount != nil {
 			logMensaje("ERROR", "Error al montar la carpeta de red: "+errMount.Error())
