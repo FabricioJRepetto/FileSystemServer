@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -8,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"syscall"
 	"time"
 	"unsafe"
@@ -24,6 +26,9 @@ type FocusRequest struct {
 
 // jaja boludoo
 func main() {
+	port := ":8082"
+	srv := &http.Server{Addr: port}
+
 	logWelcome()
 	createDirs(FILES_PATH, FILES_PATH, LOG_DIR)
 
@@ -36,11 +41,21 @@ func main() {
 	http.HandleFunc("/depositCanceled", handleCanceledDeposit)
 	http.HandleFunc("/windowFocus", focusHandler)
 
+	go func() {
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+		<-sigChan
+		logMensaje("STATUS", "Señal recibida cerrando servidor...")
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		srv.Shutdown(ctx)
+	}()
+
 	// Puerto y dirección donde va a escuchar
-	port := ":8081"
-	// Levantar el servidor
-	log.Fatal("[ERROR] Error al iniciar TSM - ", http.ListenAndServe(port, nil))
 	logMensaje("STATUS", "TSM listening on http://localhost"+port)
+	// Levantar el servidor
+	log.Fatal("[ERROR] Error al iniciar TSM - ", srv.ListenAndServe())
+	logMensaje("STATUS", "Servidor cerrado.")
 }
 
 type FileRequest struct {
@@ -175,14 +190,14 @@ func logMensaje(logType string, mensaje string) {
 
 // Crea los directorios si no existen
 func createDirs(paths ...string) {
-	fmt.Println("··········· Creando directorios ···········")
+	logMensaje("", "··········· Creando directorios ···········")
 	for _, path := range paths {
 		if _, err := os.Stat(path); os.IsNotExist(err) {
 			err = os.MkdirAll(path, 0755)
 			if err != nil {
-				fmt.Println("[ERROR] Error al crear directorio: " + path + " - " + err.Error())
+				logMensaje("[ERROR]", "Error al crear directorio: "+path+" - "+err.Error())
 			} else {
-				fmt.Println("[STATUS] ✓ Directorio creado: " + path)
+				logMensaje("[STATUS]", "Directorio creado: "+path)
 			}
 		}
 	}
@@ -197,7 +212,7 @@ func createDirs(paths ...string) {
 	} else {
 		// Montar carpeta de red
 		cmdMap := exec.Command("cmd", "/C", "net", "use", "Z:", remoteDirectory, "/user:"+user, password)
-		fmt.Println("········· Montando carpeta de red ·········")
+		logMensaje("", "········· Montando carpeta de red ·········")
 		errMount := cmdMap.Run()
 		if errMount != nil {
 			logMensaje("ERROR", "Error al montar la carpeta de red: "+errMount.Error())
@@ -262,8 +277,8 @@ var (
 	user32            = syscall.NewLazyDLL("user32.dll")
 	procFindWindowW   = user32.NewProc("FindWindowW")
 	procSetForeground = user32.NewProc("SetForegroundWindow")
-	procShowWindow    = user32.NewProc("ShowWindow")
-	procKeybdEvent    = user32.NewProc("keybd_event")
+	// procShowWindow    = user32.NewProc("ShowWindow")
+	procKeybdEvent = user32.NewProc("keybd_event")
 )
 
 const (
@@ -274,6 +289,7 @@ const (
 
 func focusHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
+		logMensaje("ERROR", "Método no permitido")
 		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
 		return
 	}
@@ -281,14 +297,17 @@ func focusHandler(w http.ResponseWriter, r *http.Request) {
 	var req FocusRequest
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
+		logMensaje("ERROR", "Error en el JSON")
 		http.Error(w, "Error en el JSON", http.StatusBadRequest)
 		return
 	}
 
 	success := setFocusToWindow(req.WindowTitle)
 	if success {
+		logMensaje("STATUS", "Se cambió el foco a la ventana: "+req.WindowTitle)
 		fmt.Fprintf(w, "Se cambió el foco a la ventana: %s", req.WindowTitle)
 	} else {
+		logMensaje("ERROR", "No se pudo encontrar la ventana: "+req.WindowTitle)
 		http.Error(w, "No se pudo encontrar la ventana", http.StatusNotFound)
 	}
 }
@@ -301,8 +320,24 @@ func setFocusToWindow(title string) bool {
 		return false
 	}
 
-	// Restaurar si está minimizada
-	procShowWindow.Call(hwnd, SW_RESTORE)
+	/** Restaurar si está minimizada
+	const (
+		SW_HIDE            = 0
+		SW_NORMAL          = 1
+		SW_SHOWNORMAL      = 1
+		SW_SHOWMINIMIZED   = 2
+		SW_SHOWMAXIMIZED   = 3
+		SW_MAXIMIZE        = 3 <- testear
+		SW_SHOWNOACTIVATE  = 4
+		SW_SHOW            = 5 <- testear
+		SW_MINIMIZE        = 6
+		SW_SHOWMINNOACTIVE = 7
+		SW_SHOWNA          = 8
+		SW_RESTORE         = 9 <- saca la ventana del fullscreen
+		SW_SHOWDEFAULT     = 10
+		SW_FORCEMINIMIZE   = 11
+	) */
+	// procShowWindow.Call(hwnd, SW_RESTORE)
 
 	// Simular ALT para permitir SetForegroundWindow
 	procKeybdEvent.Call(VK_MENU, 0, 0, 0)
